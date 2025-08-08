@@ -251,6 +251,49 @@ async def test_azure_openai_chat_completion_client() -> None:
 
 
 @pytest.mark.asyncio
+async def test_azure_openai_chat_completion_client_serialization_with_model_info() -> None:
+    """Test that model_info is preserved during serialization for Azure client."""
+    model_info = {
+        "vision": False,
+        "function_calling": True,
+        "json_output": False,
+        "family": "unknown",
+        "structured_output": False,
+    }
+    
+    client = AzureOpenAIChatCompletionClient(
+        model="gpt-35-turbo",
+        azure_endpoint="https://dummy.openai.azure.com/",
+        azure_deployment="gpt-35-turbo-deployment", 
+        api_version="2024-06-01",
+        api_key="sk-test-key",
+        model_info=model_info,
+    )
+    
+    # Serialize the client
+    config = client.dump_component()
+    serialized_config = config.model_dump_json()
+    
+    # Verify model_info is present in the serialized config
+    import json
+    parsed_config = json.loads(serialized_config)
+    assert "config" in parsed_config
+    assert "model_info" in parsed_config["config"]
+    
+    # Verify the model_info values match
+    serialized_model_info = parsed_config["config"]["model_info"]
+    assert serialized_model_info["vision"] == model_info["vision"]
+    assert serialized_model_info["function_calling"] == model_info["function_calling"] 
+    assert serialized_model_info["json_output"] == model_info["json_output"]
+    assert serialized_model_info["family"] == model_info["family"]
+    assert serialized_model_info["structured_output"] == model_info["structured_output"]
+    
+    # Verify we can load the client back from the config
+    loaded_client = AzureOpenAIChatCompletionClient.load_component(config)
+    assert loaded_client.model_info == model_info
+
+
+@pytest.mark.asyncio
 async def test_openai_chat_completion_client_create(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
